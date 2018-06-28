@@ -1,4 +1,4 @@
-package primitive
+package primitiveWriter
 
 import (
 	"flag"
@@ -86,7 +86,7 @@ func init() {
 	flag.BoolVar(&VV, "vv", false, "very verbose")
 }
 
-func WriteSvg(Input string, hh int) (string, error) {
+func Write(Input string, hh int) (string, error) {
 	Configs.Set(hh)
 	fmt.Println("Config Set")
 	// parse and validate arguments
