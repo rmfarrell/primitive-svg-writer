@@ -1,4 +1,4 @@
-package main
+package primitive
 
 import (
 	"flag"
@@ -7,7 +7,6 @@ import (
 	"math/rand"
 	"os"
 	"runtime"
-	"strconv"
 	"strings"
 	"time"
 
@@ -16,7 +15,7 @@ import (
 )
 
 var (
-	Input      string
+	// Input      string
 	Outputs    flagArray
 	Background string
 	Configs    shapeConfigArray
@@ -54,9 +53,9 @@ func (i *shapeConfigArray) String() string {
 	return ""
 }
 
-func (i *shapeConfigArray) Set(value string) error {
-	n, _ := strconv.ParseInt(value, 0, 0)
-	*i = append(*i, shapeConfig{int(n), Mode, Alpha, Repeat})
+func (i *shapeConfigArray) Set(value int) error {
+	// n, _ := strconv.ParseInt(value, 0, 0)
+	*i = append(*i, shapeConfig{value, Mode, Alpha, Repeat})
 	return nil
 }
 
@@ -72,9 +71,9 @@ func check(err error) {
 }
 
 func init() {
-	flag.StringVar(&Input, "i", "", "input image path")
+	// flag.StringVar(&Input, "i", "", "input image path")
 	// flag.Var(&Outputs, "o", "output image path")
-	flag.Var(&Configs, "n", "number of primitives")
+	// flag.Var(&Configs, "n", "number of primitives")
 	flag.StringVar(&Background, "bg", "", "background color (hex)")
 	flag.IntVar(&Alpha, "a", 128, "alpha value")
 	flag.IntVar(&InputSize, "r", 256, "resize large input images to this size")
@@ -87,8 +86,9 @@ func init() {
 	flag.BoolVar(&VV, "vv", false, "very verbose")
 }
 
-func main() {
-	fmt.Println(os.Getenv("PATH"))
+func WriteSvg(Input string, hh int) (string, error) {
+	Configs.Set(hh)
+	fmt.Println("Config Set")
 	// parse and validate arguments
 	flag.Parse()
 	ok := true
@@ -112,10 +112,10 @@ func main() {
 		}
 	}
 	if !ok {
-		fmt.Println("Usage: primitive [OPTIONS] -i input -o output -n count")
 		flag.PrintDefaults()
-		os.Exit(1)
+		return "", fmt.Errorf("Usage: primitive [OPTIONS] -i input -o output -n count")
 	}
+	fmt.Println("Everything okay")
 
 	// set log level
 	if V {
@@ -132,17 +132,20 @@ func main() {
 	if Workers < 1 {
 		Workers = runtime.NumCPU()
 	}
+	fmt.Println("Workers gathered")
 
 	// read input image
 	primitive.Log(1, "reading %s\n", Input)
 	input, err := primitive.LoadImage(Input)
 	check(err)
+	fmt.Println("Read Inage")
 
 	// scale down input image if needed
 	size := uint(InputSize)
 	if size > 0 {
 		input = resize.Thumbnail(size, size, input, resize.Bilinear)
 	}
+	fmt.Println("Scale")
 
 	// determine background color
 	var bg primitive.Color
@@ -151,29 +154,40 @@ func main() {
 	} else {
 		bg = primitive.MakeHexColor(Background)
 	}
+	fmt.Println("Got Background Color")
 
 	// run algorithm
 	model := primitive.NewModel(input, bg, 1, Workers)
+	fmt.Println("Got Model")
 	primitive.Log(1, "%d: t=%.3f, score=%.6f\n", 0, 0.0, model.Score)
 	start := time.Now()
 	frame := 0
 	for j, config := range Configs {
+		fmt.Println("Start Config Loop")
 		primitive.Log(1, "count=%d, mode=%d, alpha=%d, repeat=%d\n",
 			config.Count, config.Mode, config.Alpha, config.Repeat)
 
 		for i := 0; i < config.Count; i++ {
+			fmt.Println("Start config count new loop")
+			fmt.Println(i)
 			frame++
 
 			// find optimal shape and add it to the model
 			t := time.Now()
+			fmt.Println(t)
 			n := model.Step(primitive.ShapeType(config.Mode), config.Alpha, config.Repeat)
+			fmt.Println("n assigned")
 			nps := primitive.NumberString(float64(n) / time.Since(t).Seconds())
+			fmt.Println("nps assigned")
 			elapsed := time.Since(start).Seconds()
+			fmt.Println(elapsed)
 			primitive.Log(1, "%d: t=%.3f, score=%.6f, n=%d, n/s=%s\n", frame, elapsed, model.Score, n, nps)
 			last := j == len(Configs)-1 && i == config.Count-1
 			if last {
-				fmt.Println(model.SVG())
+				fmt.Println("End Config Loop")
+				return model.SVG(), nil
 			}
 		}
 	}
+	return "", nil
 }
