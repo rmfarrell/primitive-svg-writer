@@ -4,14 +4,8 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"math/rand"
 	"os"
-	"runtime"
 	"strings"
-	"time"
-
-	"github.com/fogleman/primitive/primitive"
-	"github.com/nfnt/resize"
 )
 
 var (
@@ -47,6 +41,73 @@ type shapeConfig struct {
 	Repeat int
 }
 
+type writeParams struct {
+	Configs shapeConfigArray
+}
+
+type Options struct {
+	Input       string `json:input`
+	ShapeCount  int    `json:shape_count`
+	Mode        string `json:mode`
+	Background  string `json:background`
+	Alpha       int    `json:alpha`
+	Repetitions int    `json:repetitions`
+}
+
+// type writeOptions struct {
+// 	Background string
+// 	Alpha      int
+// 	InputSize  int
+// 	OutputSize int
+// 	Mode       int
+// 	Workers    int
+// 	Nth        int
+// 	Repeat     int
+// 	V, VV      bool
+// }
+
+func NewOptions(in *Options) (*Options, error) {
+
+	// set defaults
+	out := &Options{"", 0, "triangle", "", 128, 0}
+
+	out.Input = in.Input
+	out.ShapeCount = in.ShapeCount
+	// TODO: account for combo, if supported
+	if in.Mode != "" {
+		out.Mode = in.Mode
+	}
+	if in.Background != "" {
+		out.Background = in.Background
+	}
+	if in.Alpha != 0 {
+		out.Alpha = in.Alpha
+	}
+	if in.Repetitions > 0 {
+		out.Repetitions = in.Repetitions
+	}
+
+	err := out.validate()
+	return out, err
+}
+
+func (wo *Options) validate() error {
+	if wo.Input == "" {
+		return fmt.Errorf("input param required")
+	}
+	if wo.ShapeCount == 0 {
+		return fmt.Errorf("shape_count param required")
+	}
+
+	// TODO: What is this? Is it needed?
+	// for _, config := range Configs {
+	// 	if config.Count < 1 {
+	// 		ok = errorMessage("ERROR: number argument must be > 0")
+	// 	}
+	// }
+	return nil
+}
+
 type shapeConfigArray []shapeConfig
 
 func (i *shapeConfigArray) String() string {
@@ -54,7 +115,6 @@ func (i *shapeConfigArray) String() string {
 }
 
 func (i *shapeConfigArray) Set(value int) error {
-	// n, _ := strconv.ParseInt(value, 0, 0)
 	*i = append(*i, shapeConfig{value, Mode, Alpha, Repeat})
 	return nil
 }
@@ -86,44 +146,26 @@ func init() {
 	flag.BoolVar(&VV, "vv", false, "very verbose")
 }
 
-func Write(Input string, hh int) (string, error) {
-	Configs.Set(hh)
-	fmt.Println("Config Set")
-	// parse and validate arguments
-	flag.Parse()
-	ok := true
-	if Input == "" {
-		ok = errorMessage("ERROR: input argument required")
-	}
+/*
+func Write(options *Options) (string, error) {
+	// validate options
+
 	// if len(Outputs) == 0 {
 	// 	ok = errorMessage("ERROR: output argument required")
 	// }
-	if len(Configs) == 0 {
-		ok = errorMessage("ERROR: number argument required")
-	}
+
+	// set configs
+	configs := shapeConfigArray{}
+	configs.Set(options.PrimitiveCount)
+
 	if len(Configs) == 1 {
 		Configs[0].Mode = Mode
 		Configs[0].Alpha = Alpha
 		Configs[0].Repeat = Repeat
 	}
-	for _, config := range Configs {
-		if config.Count < 1 {
-			ok = errorMessage("ERROR: number argument must be > 0")
-		}
-	}
-	if !ok {
-		flag.PrintDefaults()
-		return "", fmt.Errorf("Usage: primitive [OPTIONS] -i input -o output -n count")
-	}
-	fmt.Println("Everything okay")
 
 	// set log level
-	if V {
-		primitive.LogLevel = 1
-	}
-	if VV {
-		primitive.LogLevel = 2
-	}
+	primitive.LogLevel = 2
 
 	// seed random number generator
 	rand.Seed(time.Now().UTC().UnixNano())
@@ -191,3 +233,4 @@ func Write(Input string, hh int) (string, error) {
 	}
 	return "", nil
 }
+*/
