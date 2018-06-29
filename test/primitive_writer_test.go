@@ -1,52 +1,45 @@
 package primitiveWriter
 
 import (
+	"encoding/json"
 	"fmt"
-	"reflect"
+	"strings"
 	"testing"
 
 	w "github.com/rmfarrell/svg-server/primitive_writer"
 )
 
 func TestWrite(t *testing.T) {
+	input := []byte(`{
+				"input": "./this-guy.jpg",
+				"shapecount": 2,
+				"method":"triangle"
+			}`)
 
-}
-
-func TestNewOptions(t *testing.T) {
-
-	// valid
-	wo, err := w.NewOptions(&w.Options{
-		Input:      "./path/to/file",
-		ShapeCount: 1,
-	})
+	optionsInput := w.Options{}
+	err := json.Unmarshal(input, &optionsInput)
 	if err != nil {
 		t.Error(err)
 	}
-
-	// defaults set
-	expected := &w.Options{
-		Input:       "./path/to/file",
-		ShapeCount:  1,
-		Mode:        "triangle",
-		Background:  "",
-		Alpha:       128,
-		Repetitions: 0,
+	opts, err := w.NewOptions(&optionsInput)
+	if err != nil {
+		t.Error(err)
 	}
-
-	if *wo != *expected {
-		t.Errorf(`Did not correctly set defaults.
-			Expected: 
-			%v
-			Received:
-			%v`, expected, wo)
+	out, err := w.Write(opts)
+	if err != nil {
+		t.Error(err)
+	}
+	if !(strings.HasPrefix(out, "<svg")) {
+		t.Errorf("Expected: %s to have prefix <svg", out)
 	}
 }
 
-func TestOptionsValidate(t *testing.T) {
+func TestNewOptions(t *testing.T) {
 	fixtures := []struct {
 		input    *w.Options
 		expected error
 	}{
+		// valid
 		{
 			&w.Options{
 				Input:      "./path/to/file",
@@ -54,6 +47,7 @@ func TestOptionsValidate(t *testing.T) {
 			},
 			nil,
 		},
+		// no input
 		{
 			&w.Options{
 				Input:      "",
@@ -61,6 +55,7 @@ func TestOptionsValidate(t *testing.T) {
 			},
 			fmt.Errorf("input param required"),
 		},
+		// no shape_count
 		{
 			&w.Options{
 				Input:      "./path/to/file",
@@ -68,15 +63,22 @@ func TestOptionsValidate(t *testing.T) {
 			},
 			fmt.Errorf("shape_count param required"),
 		},
+		// unsupported mode
+		{
+			&w.Options{
+				Input:      "./path/to/file",
+				ShapeCount: 1,
+				Mode:       "your mom",
+			},
+			fmt.Errorf("your mom is not a supported mode. Must be one of: [combo triangle rect ellipse circle rotatedrect beziers rotatedellipse polygon]"),
+		},
 	}
 	for _, fx := range fixtures {
 		_, err := w.NewOptions(fx.input)
-		fmt.Println(reflect.TypeOf(fx.expected))
 		if err == nil && fx.expected == nil {
 			continue
 		}
 		if err.Error() != fx.expected.Error() {
-			fmt.Println(reflect.TypeOf(err))
 			t.Errorf(`Expected 
 				%v 
 				but received 

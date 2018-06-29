@@ -1,11 +1,16 @@
 package primitiveWriter
 
 import (
-	"flag"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
+	"runtime"
 	"strings"
+	"time"
+
+	"github.com/fogleman/primitive/primitive"
+	"github.com/nfnt/resize"
 )
 
 var (
@@ -14,14 +19,27 @@ var (
 	Background string
 	Configs    shapeConfigArray
 	Alpha      int
-	InputSize  int
+	inputMax   int
 	OutputSize int
 	Mode       int
-	Workers    int
+	workers    int
 	Nth        int
 	Repeat     int
 	V, VV      bool
+	logLevel   int
 )
+
+var modes = []string{
+	"combo",
+	"triangle",
+	"rect",
+	"ellipse",
+	"circle",
+	"rotatedrect",
+	"beziers",
+	"rotatedellipse",
+	"polygon",
+}
 
 type flagArray []string
 
@@ -46,12 +64,13 @@ type writeParams struct {
 }
 
 type Options struct {
-	Input       string `json:input`
-	ShapeCount  int    `json:shape_count`
-	Mode        string `json:mode`
-	Background  string `json:background`
-	Alpha       int    `json:alpha`
-	Repetitions int    `json:repetitions`
+	Input      string `json:input`
+	ShapeCount int    `json:shapecount`
+	Mode       string `json:mode`
+	Background string `json:background`
+	Alpha      int    `json:alpha`
+	Repeat     int    `json:repeat`
+	modeInt    int
 }
 
 // type writeOptions struct {
@@ -66,10 +85,18 @@ type Options struct {
 // 	V, VV      bool
 // }
 
+func init() {
+	// assign defaults
+	inputMax = 100
+	logLevel = 1
+	// set workers
+	workers = runtime.NumCPU()
+}
+
 func NewOptions(in *Options) (*Options, error) {
 
 	// set defaults
-	out := &Options{"", 0, "triangle", "", 128, 0}
+	out := &Options{"", 0, "triangle", "", 128, 0, 0}
 
 	out.Input = in.Input
 	out.ShapeCount = in.ShapeCount
@@ -83,8 +110,17 @@ func NewOptions(in *Options) (*Options, error) {
 	if in.Alpha != 0 {
 		out.Alpha = in.Alpha
 	}
-	if in.Repetitions > 0 {
-		out.Repetitions = in.Repetitions
+	if in.Repeat > 0 {
+		out.Repeat = in.Repeat
+	}
+
+	// assign modeInt (used by the algorithm)
+	out.modeInt = -1
+	for i := 0; i < len(modes); i++ {
+		if modes[i] == out.Mode {
+			out.modeInt = i
+			break
+		}
 	}
 
 	err := out.validate()
@@ -97,6 +133,9 @@ func (wo *Options) validate() error {
 	}
 	if wo.ShapeCount == 0 {
 		return fmt.Errorf("shape_count param required")
+	}
+	if wo.modeInt < 0 {
+		return fmt.Errorf(`%s is not a supported mode. Must be one of: %v`, wo.Mode, modes)
 	}
 
 	// TODO: What is this? Is it needed?
@@ -130,107 +169,63 @@ func check(err error) {
 	}
 }
 
-func init() {
-	// flag.StringVar(&Input, "i", "", "input image path")
-	// flag.Var(&Outputs, "o", "output image path")
-	// flag.Var(&Configs, "n", "number of primitives")
-	flag.StringVar(&Background, "bg", "", "background color (hex)")
-	flag.IntVar(&Alpha, "a", 128, "alpha value")
-	flag.IntVar(&InputSize, "r", 256, "resize large input images to this size")
-	// flag.IntVar(&OutputSize, "s", 1024, "output image size")
-	flag.IntVar(&Mode, "m", 1, "0=combo 1=triangle 2=rect 3=ellipse 4=circle 5=rotatedrect 6=beziers 7=rotatedellipse 8=polygon")
-	flag.IntVar(&Workers, "j", 0, "number of parallel workers (default uses all cores)")
-	flag.IntVar(&Nth, "nth", 1, "save every Nth frame (put \"%d\" in path)")
-	flag.IntVar(&Repeat, "rep", 0, "add N extra shapes per iteration with reduced search")
-	flag.BoolVar(&V, "v", false, "verbose")
-	flag.BoolVar(&VV, "vv", false, "very verbose")
-}
-
-/*
-func Write(options *Options) (string, error) {
-	// validate options
-
-	// if len(Outputs) == 0 {
-	// 	ok = errorMessage("ERROR: output argument required")
-	// }
+func Write(o *Options) (string, error) {
 
 	// set configs
 	configs := shapeConfigArray{}
-	configs.Set(options.PrimitiveCount)
+	configs.Set(o.ShapeCount)
 
-	if len(Configs) == 1 {
-		Configs[0].Mode = Mode
-		Configs[0].Alpha = Alpha
-		Configs[0].Repeat = Repeat
-	}
+	configs[0].Mode = o.modeInt
+	configs[0].Alpha = o.Alpha
+	configs[0].Repeat = o.Repeat
 
 	// set log level
-	primitive.LogLevel = 2
+	primitive.LogLevel = logLevel
 
 	// seed random number generator
+	// TODO: remove?
 	rand.Seed(time.Now().UTC().UnixNano())
 
-	// determine worker count
-	if Workers < 1 {
-		Workers = runtime.NumCPU()
-	}
-	fmt.Println("Workers gathered")
-
 	// read input image
-	primitive.Log(1, "reading %s\n", Input)
-	input, err := primitive.LoadImage(Input)
-	check(err)
-	fmt.Println("Read Inage")
-
-	// scale down input image if needed
-	size := uint(InputSize)
-	if size > 0 {
-		input = resize.Thumbnail(size, size, input, resize.Bilinear)
+	primitive.Log(1, "reading %s\n", o.Input)
+	input, err := primitive.LoadImage(o.Input)
+	if err != nil {
+		return "", err
 	}
-	fmt.Println("Scale")
+
+	// scale down image
+	size := uint(inputMax)
+	input = resize.Thumbnail(size, size, input, resize.Bilinear)
 
 	// determine background color
 	var bg primitive.Color
-	if Background == "" {
+	if o.Background == "" {
 		bg = primitive.MakeColor(primitive.AverageImageColor(input))
 	} else {
-		bg = primitive.MakeHexColor(Background)
+		bg = primitive.MakeHexColor(o.Background)
 	}
-	fmt.Println("Got Background Color")
-
 	// run algorithm
-	model := primitive.NewModel(input, bg, 1, Workers)
-	fmt.Println("Got Model")
+	out := ""
+	model := primitive.NewModel(input, bg, o.modeInt, workers)
 	primitive.Log(1, "%d: t=%.3f, score=%.6f\n", 0, 0.0, model.Score)
 	start := time.Now()
 	frame := 0
-	for j, config := range Configs {
-		fmt.Println("Start Config Loop")
+	for _, config := range configs {
 		primitive.Log(1, "count=%d, mode=%d, alpha=%d, repeat=%d\n",
 			config.Count, config.Mode, config.Alpha, config.Repeat)
-
 		for i := 0; i < config.Count; i++ {
-			fmt.Println("Start config count new loop")
-			fmt.Println(i)
 			frame++
 
 			// find optimal shape and add it to the model
 			t := time.Now()
-			fmt.Println(t)
 			n := model.Step(primitive.ShapeType(config.Mode), config.Alpha, config.Repeat)
-			fmt.Println("n assigned")
 			nps := primitive.NumberString(float64(n) / time.Since(t).Seconds())
-			fmt.Println("nps assigned")
 			elapsed := time.Since(start).Seconds()
-			fmt.Println(elapsed)
 			primitive.Log(1, "%d: t=%.3f, score=%.6f, n=%d, n/s=%s\n", frame, elapsed, model.Score, n, nps)
-			last := j == len(Configs)-1 && i == config.Count-1
-			if last {
-				fmt.Println("End Config Loop")
-				return model.SVG(), nil
+			if i >= config.Count-1 {
+				out = model.SVG()
 			}
 		}
 	}
-	return "", nil
+	return out, nil
 }
-*/
