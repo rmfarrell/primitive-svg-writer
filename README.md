@@ -29,11 +29,11 @@ fmt.Println(svg) // sweet SVG goodness
 See https://github.com/fogleman/primitive for more info.
 
 ## Options
-- *Input* {String} local path to bitmap file
-- *ShapeCount* {Int} number of shapes to render 
-- *Mode* {String} (combo | triangle | rect | ellipse | circle | rotatedrect | beziers | rotatedellipse | polygon) rendering algorithm used for shape
-- *Alpha* {Int} transparency of rendered shapes
-- *Repeat* {Int} add N extra shapes per iteration with reduced search
+- **Input**      {String} local path to bitmap file
+- **ShapeCount** {Int} number of shapes to render 
+- **Mode**       {String} (combo | triangle | rect | ellipse | circle | rotatedrect | beziers | rotatedellipse | polygon) rendering algorithm used for shape
+- **Alpha**      {Int} transparency of rendered shapes
+- **Repeat**     {Int} add N extra shapes per iteration with reduced search
 
 ## Y Tho?
 You can use this over HTTP and save memory outputting new files.
