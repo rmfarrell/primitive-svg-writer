@@ -7,11 +7,9 @@ import (
 	"time"
 
 	"github.com/fogleman/primitive/primitive"
-	"github.com/nfnt/resize"
 )
 
 var (
-	inputMax int
 	workers  int
 	logLevel int
 )
@@ -54,7 +52,6 @@ type PrimitiveSvg struct {
 func init() {
 
 	// assign defaults
-	inputMax = 100
 	logLevel = 1
 
 	// set workers
@@ -133,10 +130,6 @@ func (psvg *PrimitiveSvg) Write() (string, error) {
 	if err != nil {
 		return "", err
 	}
-
-	// scale down image
-	size := uint(inputMax)
-	input = resize.Thumbnail(size, size, input, resize.Bilinear)
 
 	// determine background color
 	var bg primitive.Color
