@@ -36,7 +36,7 @@ See https://github.com/fogleman/primitive for more info.
 - **Repeat**     {Int} add N extra shapes per iteration with reduced search
 
 ## Y Tho?
-You can use this over HTTP and save memory outputting new files.
+The original library is great for local file creation, but this has no opinion on the output. You can write the SVG over HTTP, for example.
 
 
 
