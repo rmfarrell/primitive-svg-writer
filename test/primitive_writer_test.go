@@ -13,7 +13,7 @@ func TestWrite(t *testing.T) {
 	input := []byte(`{
 				"input": "./this-guy.jpg",
 				"shapecount": 2,
-				"method":"triangle"
+				"mode":"beziers"
 			}`)
 
 	optionsInput := w.Options{}
@@ -21,16 +21,16 @@ func TestWrite(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	opts, err := w.NewOptions(&optionsInput)
+	primitiveSvg, err := w.NewPrimtitiveSvg(&optionsInput)
 	if err != nil {
 		t.Error(err)
 	}
-	out, err := w.Write(opts)
+	svg, err := primitiveSvg.Write()
 	if err != nil {
 		t.Error(err)
 	}
-	if !(strings.HasPrefix(out, "<svg")) {
-		t.Errorf("Expected: %s to have prefix <svg", out)
+	if !(strings.HasPrefix(svg, "<svg")) {
+		t.Errorf("Expected: %s to have prefix <svg", svg)
 	}
 }
 
@@ -74,15 +74,15 @@ func TestNewOptions(t *testing.T) {
 		},
 	}
 	for _, fx := range fixtures {
-		_, err := w.NewOptions(fx.input)
+		_, err := w.NewPrimtitiveSvg(fx.input)
 		if err == nil && fx.expected == nil {
 			continue
 		}
 		if err.Error() != fx.expected.Error() {
-			t.Errorf(`Expected 
-				%v 
-				but received 
-				%v`, fx.expected, err)
+			t.Errorf(`Expected
+					%v
+					but received
+					%v`, fx.expected, err)
 		}
 	}
 }

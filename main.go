@@ -2,11 +2,8 @@ package primitiveWriter
 
 import (
 	"fmt"
-	"log"
 	"math/rand"
-	"os"
 	"runtime"
-	"strings"
 	"time"
 
 	"github.com/fogleman/primitive/primitive"
@@ -14,19 +11,9 @@ import (
 )
 
 var (
-	// Input      string
-	Outputs    flagArray
-	Background string
-	Configs    shapeConfigArray
-	Alpha      int
-	inputMax   int
-	OutputSize int
-	Mode       int
-	workers    int
-	Nth        int
-	Repeat     int
-	V, VV      bool
-	logLevel   int
+	inputMax int
+	workers  int
+	logLevel int
 )
 
 var modes = []string{
@@ -41,17 +28,6 @@ var modes = []string{
 	"polygon",
 }
 
-type flagArray []string
-
-func (i *flagArray) String() string {
-	return strings.Join(*i, ", ")
-}
-
-func (i *flagArray) Set(value string) error {
-	*i = append(*i, value)
-	return nil
-}
-
 type shapeConfig struct {
 	Count  int
 	Mode   int
@@ -59,9 +35,7 @@ type shapeConfig struct {
 	Repeat int
 }
 
-type writeParams struct {
-	Configs shapeConfigArray
-}
+type shapeConfigArray []shapeConfig
 
 type Options struct {
 	Input      string `json:input`
@@ -70,120 +44,87 @@ type Options struct {
 	Background string `json:background`
 	Alpha      int    `json:alpha`
 	Repeat     int    `json:repeat`
-	modeInt    int
 }
 
-// type writeOptions struct {
-// 	Background string
-// 	Alpha      int
-// 	InputSize  int
-// 	OutputSize int
-// 	Mode       int
-// 	Workers    int
-// 	Nth        int
-// 	Repeat     int
-// 	V, VV      bool
-// }
+type PrimitiveSvg struct {
+	options *Options
+	modeInt int
+}
 
 func init() {
+
 	// assign defaults
 	inputMax = 100
 	logLevel = 1
+
 	// set workers
 	workers = runtime.NumCPU()
 }
 
-func NewOptions(in *Options) (*Options, error) {
+func (i *shapeConfigArray) Set(value, mode, alpha, repeat int) error {
+	*i = append(*i, shapeConfig{value, mode, alpha, repeat})
+	return nil
+}
+
+func NewPrimtitiveSvg(in *Options) (*PrimitiveSvg, error) {
 
 	// set defaults
-	out := &Options{"", 0, "triangle", "", 128, 0, 0}
+	out := &PrimitiveSvg{}
+	options := &Options{"", 0, "triangle", "", 128, 0}
 
-	out.Input = in.Input
-	out.ShapeCount = in.ShapeCount
-	// TODO: account for combo, if supported
+	options.Input = in.Input
+	options.ShapeCount = in.ShapeCount
+
 	if in.Mode != "" {
-		out.Mode = in.Mode
+		options.Mode = in.Mode
 	}
 	if in.Background != "" {
-		out.Background = in.Background
+		options.Background = in.Background
 	}
 	if in.Alpha != 0 {
-		out.Alpha = in.Alpha
+		options.Alpha = in.Alpha
 	}
 	if in.Repeat > 0 {
-		out.Repeat = in.Repeat
+		options.Repeat = in.Repeat
 	}
 
 	// assign modeInt (used by the algorithm)
 	out.modeInt = -1
 	for i := 0; i < len(modes); i++ {
-		if modes[i] == out.Mode {
+		if modes[i] == options.Mode {
 			out.modeInt = i
 			break
 		}
 	}
-
+	out.options = options
 	err := out.validate()
 	return out, err
 }
 
-func (wo *Options) validate() error {
-	if wo.Input == "" {
+func (psvg *PrimitiveSvg) validate() error {
+	if psvg.options.Input == "" {
 		return fmt.Errorf("input param required")
 	}
-	if wo.ShapeCount == 0 {
+	if psvg.options.ShapeCount == 0 {
 		return fmt.Errorf("shape_count param required")
 	}
-	if wo.modeInt < 0 {
-		return fmt.Errorf(`%s is not a supported mode. Must be one of: %v`, wo.Mode, modes)
+	if psvg.modeInt < 0 {
+		return fmt.Errorf(`%s is not a supported mode. Must be one of: %v`, psvg.options.Mode, modes)
 	}
-
-	// TODO: What is this? Is it needed?
-	// for _, config := range Configs {
-	// 	if config.Count < 1 {
-	// 		ok = errorMessage("ERROR: number argument must be > 0")
-	// 	}
-	// }
 	return nil
 }
 
-type shapeConfigArray []shapeConfig
-
-func (i *shapeConfigArray) String() string {
-	return ""
-}
-
-func (i *shapeConfigArray) Set(value int) error {
-	*i = append(*i, shapeConfig{value, Mode, Alpha, Repeat})
-	return nil
-}
-
-func errorMessage(message string) bool {
-	fmt.Fprintln(os.Stderr, message)
-	return false
-}
-
-func check(err error) {
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
-func Write(o *Options) (string, error) {
+func (psvg *PrimitiveSvg) Write() (string, error) {
+	o := psvg.options
 
 	// set configs
 	configs := shapeConfigArray{}
-	configs.Set(o.ShapeCount)
-
-	configs[0].Mode = o.modeInt
-	configs[0].Alpha = o.Alpha
-	configs[0].Repeat = o.Repeat
+	configs.Set(o.ShapeCount, psvg.modeInt, o.Alpha, o.Repeat)
 
 	// set log level
 	primitive.LogLevel = logLevel
 
 	// seed random number generator
-	// TODO: remove?
 	rand.Seed(time.Now().UTC().UnixNano())
 
 	// read input image
@@ -206,7 +147,7 @@ func Write(o *Options) (string, error) {
 	}
 	// run algorithm
 	out := ""
-	model := primitive.NewModel(input, bg, o.modeInt, workers)
+	model := primitive.NewModel(input, bg, psvg.modeInt, workers)
 	primitive.Log(1, "%d: t=%.3f, score=%.6f\n", 0, 0.0, model.Score)
 	start := time.Now()
 	frame := 0
