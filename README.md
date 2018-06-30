@@ -7,11 +7,11 @@ import primitive primitiveSVGWriter
 
 primitive, err := NewPrimtitiveSvg(&primitive.Options{
   Input: "./path/to/file.jpg", // required
-	ShapeCount: 100, // required
-	Mode: "beziers", // combo | triangle | rect | ellipse | circle | rotatedrect | beziers | rotatedellipse | polygon
-	Background: "#000000",
-	Alpha: 200,
-	Repeat: 1,
+  ShapeCount: 100, // required
+  Mode: "beziers", // combo | triangle | rect | ellipse | circle | rotatedrect | beziers | rotatedellipse | polygon
+  Background: "#000000",
+  Alpha: 200,
+  Repeat: 1,
 })
 
 if err != nil {
