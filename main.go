@@ -1,4 +1,4 @@
-package primitiveWriter
+package primitiveSVGWriter
 
 import (
 	"fmt"
