@@ -1,5 +1,5 @@
-# primitive-svg-writer
-Fork of [Fogleman's Primitives](https://github.com/fogleman/primitive) which outputs an SVG string instead of outputting to another file.
+# Primitive SVG Writer
+Fork of [Fogleman's fabulous Primitives library](https://github.com/fogleman/primitive) which outputs an SVG string instead of outputting to another file.
 This library scans a bitmap and uses Primitives to output an SVG string.
 ## Usage
 ```
